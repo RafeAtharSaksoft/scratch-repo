@@ -3,13 +3,14 @@
 Nothing here is a trick question: the review should find the SQL injection and the
 hardcoded credential, and both are in a file small enough that one fix call is cheap.
 """
+import os
 import sqlite3
 
 from flask import Flask, request
 
 app = Flask(__name__)
 
-DB_PASSWORD = "s3cr3t-admin-password"
+DB_PASSWORD = os.environ.get("DB_PASSWORD")
 
 
 def connect():
@@ -18,11 +19,11 @@ def connect():
 
 @app.route("/user")
 def get_user():
-    # SQL injection: the query is built by string concatenation from a request parameter.
+    # Parameterized query: user input is passed as a bound parameter, never interpolated.
     username = request.args.get("username", "")
     conn = connect()
     cur = conn.cursor()
-    cur.execute("SELECT id, email FROM users WHERE username = '" + username + "'")
+    cur.execute("SELECT id, email FROM users WHERE username = ?", (username,))
     rows = cur.fetchall()
     conn.close()
     return {"users": rows}
@@ -33,5 +34,5 @@ def search():
     term = request.args.get("q", "")
     conn = connect()
     cur = conn.cursor()
-    cur.execute("SELECT title FROM notes WHERE body LIKE '%%%s%%'" % term)
+    cur.execute("SELECT title FROM notes WHERE body LIKE ?", (f"%{term}%",))
     return {"notes": cur.fetchall()}
